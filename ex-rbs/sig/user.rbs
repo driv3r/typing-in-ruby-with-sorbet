@@ -1,0 +1,7 @@
+class User
+  attr_reader login: String
+
+  attr_reader password: String
+
+  def initialize: (String login, String password) -> void
+end
