@@ -12,256 +12,242 @@
   <body>
     <div class="reveal">
       <div class="slides">
-        <section data-markdown>
-          ## Typing in Ruby with Sorbet
+        <section data-markdown >
+          <script type="text/template">
+            ---
 
-          ---
-          ### Leszek Zalewski
-          #### Staff Developer at Shopify
+            ## Typing in Ruby with Sorbet
 
-          ---
+            ---
 
-          ### Agenda
+            ### Leszek Zalewski
+            #### Staff Developer at Shopify
 
-          - State of Types in Ruby
-          - Sorbet basics
-          - Modeling with types
+            ---
 
-          Note:
-          We will discuss:
-          - What's the current state of typing ecosystem in Ruby
-          - We will quickly go through basics in Sorbet
-          - We will see how we could start modeling with types
-          - And the good, bad and ugly parts about typing in Ruby
+            ### Agenda
 
-          ---
+            - State of Types in Ruby
+            - Sorbet basics <!-- .element: class="fragment" -->
+            - Modeling with types <!-- .element: class="fragment" -->
 
-          #### State of Types in Ruby
-          ### RBS: Ruby Signatures
+            ---
 
-          1. Ruby like language to describe the structure of Ruby programs
-          2. Signatures live in separate file(s)
-          3. Built into Ruby
-          4. Not a Ruby
+            ### RBS: Ruby Signatures
 
-          ---
+            1. Ruby like language to describe the structure of Ruby programs
+            2. Signatures live in separate file(s) <!-- .element: class="fragment" -->
+            3. Built into Ruby <!-- .element: class="fragment" -->
+            4. Not a Ruby <!-- .element: class="fragment" -->
 
-          #### State of Types in Ruby
-          ### RBS: Example
+            ---
 
-          ```rb
-          class User                      # defined in lib/user.rb
-            attr_reader :login, :email
-            def initialize(login, email)
-              @login = login
-              @email = email
+            ### RBS: Example
+
+            ```rb
+            class User                      # defined in lib/user.rb
+              attr_reader :login, :email
+              def initialize(login, email)
+                @login = login
+                @email = email
+              end
             end
-          end
+            ```
 
-          class User                      # defined in sig/user.rbs
-            attr_reader login: String
-            attr_reader email: String
+            ```rb
+            class User                      # defined in sig/user.rbs
+              attr_reader login: String
+              attr_reader email: String
 
-            def initialize: (String login, String email) -> void
-          end
-
-          ```
-
-          ---
-          #### State of Types in Ruby
-          ### RBS: Tools
-
-          1. `rbs` includes commands for inspecting defined types
-          2. `typeprof` type analysis for existing codebases, i.e. helps discover and prototype type definitions
-          3. `steep` will verify that codebase adheres to the type definitions
-
-          ---
-
-          #### State of Types in Ruby
-          ### RBS: Example
-
-          ```sh
-          $> steep init
-          ```
-
-          ```rb
-          class Validate        # lib/validate.rb
-            def self.check!
-              User.new(1, 2.0)
+              def initialize: (String login, String email) -> void
             end
-          end
-          ```
+            ```
 
-          ```sh
-          $> steep check
-          ```
+            ---
 
-          ---
+            ### RBS: Tools
 
-          #### State of Types in Ruby
-          ### RBS: Example
+            1. `rbs` includes commands for inspecting defined types
+            2. `typeprof` type analysis for existing codebases, i.e. helps discover and prototype type definitions
+            3. `steep` will verify that codebase adheres to the type definitions
 
-          ![Found failure in validate class](images/steep-01.png)
+            ---
 
-          ---
+            ### RBS: Example
 
-          #### State of Types in Ruby
-          ### RBS: Summary
+            ```sh
+            $> steep init
+            ```
 
-          Pros:
-          - Built into Ruby (though as a gem)
-          - Decoupled design: provides structured data for other tools to use, i.e. steep, typeprof, sorbet
-
-          Cons:
-          - Have to define signatures in separate files, this can cause definitions to go out of date quite fast,
-          - Language for signatures is not pure ruby
-
-          ---
-
-          #### State of Types in Ruby
-          ### Sorbet
-
-          - Whole package for defining, validating and checking type signatures
-          - Provides pure Ruby DSL for defining type signatures
-          - Allows definitions to live in a separate files (RBI) as well as inline next to the code
-          - Able to use RBS files
-          - More feature rich (i.e. typed enums, exhaustiveness checking, etc.)
-
-          ---
-
-          #### State of Types in Ruby
-          ### Sorbet vs RBS
-
-          RBS is just a "language", Sorbet extends it.
-
-          ---
-          #### Sorbet basics: add to project
-
-          ```rb
-          gem "sorbet", group: :development
-          gem "sorbet-runtime"
-          gem "tapioca", require: false, group: :development
-          ```
-
-          Notes:
-          - `sorbet` static type checker which runs as CLI
-          - `sorbet-runtime` provides syntax for type annotations and some type friendly data structures
-          - `tapioca` generates RBI files to allow Sorbet to easily work with gems and metaprogramming
-
-          ---
-
-          #### Sorbet basics: Initialize
-
-          ```sh
-          $> bundle exec tapioca init
-          # This will take some time, and you will end up with new `sorbet` folder
-          ├── config             # Default options to be passed to Sorbet on every run
-          └── rbi/
-            ├── annotations/     # Type definitions pulled from the rbi-central repository
-            ├── gems/            # Autogenerated type definitions for your gems
-            └── todo.rbi         # Constants which were still missing after RBI generation
-          └── tapioca/
-            ├── config.yml       # Default options to be passed to Tapioca
-            └── require.rb       # A file where you can make requires from gems that might be needed for gem RBI generation
-          ```
-
-          ---
-
-          #### Sorbet basics: Verify installation
-
-          ```sh
-          $> bundle exec srb tc
-          No errors! Great job.
-          ```
-
-          ---
-
-          #### Sorbet basics: Add annotations
-
-          ```rb [1|4|6-7|9-10|12-16|1-17]
-          # typed: strict
-
-          class User
-            extend T::Sig
-
-            sig { returns(String) }
-            attr_reader :login
-
-            sig { returns(String) }
-            attr_reader :password
-
-            sig { params(login: String, password: String).void }
-            def initialize(login, password)
-              @login = login
-              @password = password
-            end
-          end
-          ```
-
-          ---
-
-          #### Sorbet basics: Test
-
-          ```rb [1|7|9|11|1-14]
-          # typed: strict
-
-          require_relative "user"
-
-          class Validate
-            class << self
-              extend T::Sig
-
-              sig { void }
-              def check!
+            ```rb
+            class Validate        # lib/validate.rb
+              def self.check!
                 User.new(1, 2.0)
               end
             end
-          end
-          ```
+            ```
 
-          ---
+            ```sh
+            $> steep check
+            ```
 
-          #### Sorbet basics: Test
+            ---
 
-          ```sh
-          $> bundle exec srb tc
-          ```
+            ### RBS: Example
 
-          ![sorbet validation](images/srb-01.png)
+            ![Found failure in validate class](images/steep-01.png)
 
-          ---
+            ---
 
-          #### Sorbet basics: Classes are types
+            ### RBS: Summary
 
-          ```rb [8-9|11-17|13|14|15|1-23]
-          # typed: strict
+            Pros:
+            - Built into Ruby (though as a gem) <!-- .element: class="fragment" -->
+            - Decoupled design: provides structured data for other tools to use, i.e. steep, typeprof, sorbet <!-- .element: class="fragment" -->
 
-          require_relative "user"
+            Cons: <!-- .element: class="fragment" -->
+            - Have to define signatures in separate files, this can cause definitions to go out of date quite fast <!-- .element: class="fragment" -->
+            - Language for signatures is not pure ruby <!-- .element: class="fragment" -->
 
-          class More
-            extend T::Sig
+            ---
 
-            sig { returns(User) }
-            attr_accessor :user
+            ### Sorbet
 
-            sig {
-              params(
-                user: User,
-                verify: T::Boolean,
-                scope: T.nilable(String)
-              ).void
-            }
-            def initialize(user:, verify: false, scope: nil)
-              @user = user
-              @verify = verify
-              @scope = scope
+            - Whole package for defining, validating and checking type signatures
+            - Provides pure Ruby DSL for defining type signatures <!-- .element: class="fragment" -->
+            - Allows definitions to live in a separate files (RBI) as well as inline next to the code <!-- .element: class="fragment" -->
+            - Able to use RBS files <!-- .element: class="fragment" -->
+            - More feature rich (i.e. typed enums, exhaustiveness checking, etc.) <!-- .element: class="fragment" -->
+
+            ---
+
+            ### Sorbet vs RBS
+
+            RBS is just a "language" to define types, Sorbet is a whole toolset.
+
+            ---
+
+            #### Sorbet basics: Add to project
+
+            ```rb [1|2|3]
+            gem "sorbet", group: :development
+            gem "sorbet-runtime"
+            gem "tapioca", require: false, group: :development
+            ```
+
+            ---
+
+            #### Sorbet basics: Initialize
+
+            ```sh
+            $> bundle exec tapioca init
+            # This will take some time, and you will end up with new `sorbet` folder
+            ├── config             # Default options to be passed to Sorbet on every run
+            └── rbi/
+              ├── annotations/     # Type definitions pulled from the rbi-central repository
+              ├── gems/            # Autogenerated type definitions for your gems
+              └── todo.rbi         # Constants which were still missing after RBI generation
+            └── tapioca/
+              ├── config.yml       # Default options to be passed to Tapioca
+              └── require.rb       # A file where you can make requires from gems that might be needed for gem RBI generation
+            ```
+
+            ---
+
+            #### Sorbet basics: Verify installation
+
+            ```sh
+            $> bundle exec srb tc
+            No errors! Great job.
+            ```
+
+            ---
+
+            #### Sorbet basics: Add annotations
+
+            ```rb [1|4|6-7|9-10|12-16|1-17]
+            # typed: strict
+
+            class User
+              extend T::Sig
+
+              sig { returns(String) }
+              attr_reader :login
+
+              sig { returns(String) }
+              attr_reader :password
+
+              sig { params(login: String, password: String).void }
+              def initialize(login, password)
+                @login = login
+                @password = password
+              end
             end
-          end
-          ```
-        </section>
+            ```
 
-        <section data-markdown >
-          <script type="text/template">
+            ---
+
+            #### Sorbet basics: Test
+
+            ```rb [1|7|9|11|1-14]
+            # typed: strict
+
+            require_relative "user"
+
+            class Validate
+              class << self
+                extend T::Sig
+
+                sig { void }
+                def check!
+                  User.new(1, 2.0)
+                end
+              end
+            end
+            ```
+
+            ---
+
+            #### Sorbet basics: Test
+
+            ```sh
+            $> bundle exec srb tc
+            ```
+
+            ![sorbet validation](images/srb-01.png)
+
+            ---
+
+            #### Sorbet basics: Classes are types
+
+            ```rb [8-9|11-17|13|14|15|1-23]
+            # typed: strict
+
+            require_relative "user"
+
+            class More
+              extend T::Sig
+
+              sig { returns(User) }
+              attr_accessor :user
+
+              sig {
+                params(
+                  user: User,
+                  verify: T::Boolean,
+                  scope: T.nilable(String)
+                ).void
+              }
+              def initialize(user:, verify: false, scope: nil)
+                @user = user
+                @verify = verify
+                @scope = scope
+              end
+            end
+            ```
+
+            ---
+
             #### Sorbet basics: Test
 
             ```rb
@@ -323,7 +309,7 @@
 
             ---
 
-            #### Model with types
+            #### Model with types: Enums
 
             ```rb
             class API
@@ -360,6 +346,19 @@
                 # ...
               end
             end
+            ```
+
+            ---
+
+            #### Model with types: Enums
+
+            ```rb [1-2|4-6]
+            # Using Enums
+            API.run(action: API::Actions::List)
+
+            # Serializing
+            puts "Action: #{API::Actions::List.serialize}"
+            # => Action: list
             ```
 
             ---
@@ -405,11 +404,12 @@
               end
             end
             ```
+
             ---
 
             #### Model with types: Exhaustiveness checks
 
-            ```rb
+            ```rb [8-10]
             sig { params(x: T.any(A, B, C)).void }
             def foo(x)
               case x
@@ -425,31 +425,54 @@
 
             ---
 
-            ### So where are we?
-            #### Pros of using types
+            #### Model with types: Type aliases
 
-            - better documentaion & maintenance
-            - less tests to write
-            - less defensive programming
-            - less bugs
-            - changes approach to coding for better
+            ```rb [1-3|5-7]
+            # Simple aliases improving readability and documentation
+            ID = T.type_alias { Integer }
+            UUID = T.type_alias { String }
+
+            # Type Unions
+            Boolean = T.type_alias { T.any(TrueClass, FalseClass) }
+            User = T.type_alias { T.any(Customer, Manager, Admin, Root) }
+            ```
 
             ---
 
-            ### So where are we?
-            #### Cons of introducing types
+            ## So where are we?
 
-            - more boilerplate up front
-            - its gradual typing, so benefits come only with more coverage
-            - there are still quirks and rough edges around the tooling
-            - it's doesn't feel `native`, it's a DSL
-            - performance penality when checking types during runtime
+            ---
+
+            ### Pros of using types
+
+            - better documentaion & maintenance <!-- .element: class="fragment" -->
+            - less tests to write <!-- .element: class="fragment" -->
+            - less defensive programming <!-- .element: class="fragment" -->
+            - less bugs <!-- .element: class="fragment" -->
+            - changes approach to coding for better <!-- .element: class="fragment" -->
+
+            ---
+
+            ### Cons of introducing types
+
+            - more boilerplate up front <!-- .element: class="fragment" -->
+            - its gradual typing, so benefits come only with more coverage <!-- .element: class="fragment" -->
+            - there are still quirks and rough edges around the tooling <!-- .element: class="fragment" -->
+            - it's doesn't feel native, it's a DSL <!-- .element: class="fragment" -->
+            - performance penality when checking types during runtime <!-- .element: class="fragment" -->
+
+            ---
+
+            ## Should you start using types?
+
+            It depends :) <!-- .element: class="fragment" -->
 
             ---
 
             ## Questions?
 
             - https://github.com/ruby/rbs
+            - https://github.com/ruby/typeprof
             - https://github.com/soutaro/steep
             - https://sorbet.org/
             - https://github.com/Shopify/tapioca
